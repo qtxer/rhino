@@ -112,19 +112,21 @@ public final class ES6Generator extends IdScriptableObject {
         if (delegee != null) {
             try {
                 // Be super-careful and only pass an arg to next if it expects one
-                final Object[] nextArgs = Undefined.instance.equals(value) ? ScriptRuntime.emptyArgs
+                Object[] nextArgs = Undefined.instance.equals(value) ? ScriptRuntime.emptyArgs
                         : new Object[] { value };
 
-                final Callable nextFn = ScriptRuntime.getPropFunctionAndThis(delegee, "next", cx, scope);
-                final Scriptable nextThis = ScriptRuntime.lastStoredScriptable(cx);
-                final Object nr = nextFn.call(cx, scope, nextThis, nextArgs);
+                Callable nextFn = ScriptRuntime.getPropFunctionAndThis(
+                    delegee, ES6Iterator.NEXT_METHOD, cx, scope);
+                Scriptable nextThis = ScriptRuntime.lastStoredScriptable(cx);
+                Object nr = nextFn.call(cx, scope, nextThis, nextArgs);
 
-                final Scriptable nextResult = ScriptableObject.ensureScriptable(nr);
+                Scriptable nextResult = ScriptableObject.ensureScriptable(nr);
                 if (ScriptRuntime.isIteratorDone(cx, nextResult)) {
                     // Iterator is "done".
                     delegee = null;
                     // Return a result to the original generator
-                    return resumeLocal(cx, scope, ScriptableObject.getProperty(nextResult, "value"));
+                    return resumeLocal(cx, scope, ScriptableObject.getProperty(
+                        nextResult, ES6Iterator.VALUE_PROPERTY));
                 }
                 // Otherwise, we have a normal result and should continue
                 return nextResult;
@@ -142,13 +144,15 @@ public final class ES6Generator extends IdScriptableObject {
     }
 
     private Object callReturnOptionally(Context cx, Scriptable scope, Object value) {
-        final Object[] retArgs = Undefined.instance.equals(value) ? ScriptRuntime.emptyArgs
+        Object[] retArgs = Undefined.instance.equals(value) ? ScriptRuntime.emptyArgs
                     : new Object[] { value };
         // Delegate to "return" method. If it's not defined we ignore it
-        final Object retFnObj = ScriptRuntime.getObjectPropNoWarn(delegee, "return", cx, scope);
+        Object retFnObj = ScriptRuntime.getObjectPropNoWarn(
+            delegee, ES6Iterator.RETURN_METHOD, cx, scope);
         if (!Undefined.instance.equals(retFnObj)) {
             if (!(retFnObj instanceof Callable)) {
-                throw ScriptRuntime.typeError2("msg.isnt.function", "return", ScriptRuntime.typeof(retFnObj));
+                throw ScriptRuntime.typeError2("msg.isnt.function", ES6Iterator.RETURN_METHOD,
+                    ScriptRuntime.typeof(retFnObj));
             }
             return ((Callable)retFnObj).call(cx, scope, ensureScriptable(delegee), retArgs);
         }
@@ -160,9 +164,9 @@ public final class ES6Generator extends IdScriptableObject {
         if (delegee != null) {
             try {
                 // Delegate to "throw" method. If it's not defined we'll get an error here.
-                final Callable throwFn = ScriptRuntime.getPropFunctionAndThis(delegee, "throw", cx, scope);
-                final Scriptable nextThis = ScriptRuntime.lastStoredScriptable(cx);
-                final Object throwResult = throwFn.call(cx, scope, nextThis, new Object[] { value });
+                Callable throwFn = ScriptRuntime.getPropFunctionAndThis(delegee, "throw", cx, scope);
+                Scriptable nextThis = ScriptRuntime.lastStoredScriptable(cx);
+                Object throwResult = throwFn.call(cx, scope, nextThis, new Object[] { value });
 
                 if (ScriptRuntime.isIteratorDone(cx, throwResult)) {
                     // Iterator is "done".
@@ -174,7 +178,7 @@ public final class ES6Generator extends IdScriptableObject {
                         delegee = null;
                     }
                     return resumeLocal(cx, scope, 
-                        ScriptRuntime.getObjectProp(throwResult, "value", cx, scope));
+                        ScriptRuntime.getObjectProp(throwResult, ES6Iterator.VALUE_PROPERTY, cx, scope));
                 }
                 // Otherwise, we have a normal result and should continue, but without the delegee...
                 return ensureScriptable(throwResult);
@@ -201,14 +205,14 @@ public final class ES6Generator extends IdScriptableObject {
     private Scriptable resumeReturn(Context cx, Scriptable scope, Object value) {
         if (delegee != null) {
             try {
-                final Object retResult = callReturnOptionally(cx, scope, value);
+                Object retResult = callReturnOptionally(cx, scope, value);
                 if (retResult != null) {
                     if (ScriptRuntime.isIteratorDone(cx, retResult)) {
                         // Iterator is "done".
                         delegee = null;
                         // Return a result to the original generator
                         return resumeAbruptLocal(cx, scope, NativeGenerator.GENERATOR_CLOSE, 
-                            ScriptRuntime.getObjectPropNoWarn(retResult, "value", cx, scope));
+                            ScriptRuntime.getObjectPropNoWarn(retResult, ES6Iterator.VALUE_PROPERTY, cx, scope));
                     } else {
                         // Not actually done yet!
                         return ensureScriptable(retResult);
@@ -239,7 +243,7 @@ public final class ES6Generator extends IdScriptableObject {
             throw ScriptRuntime.typeError0("msg.generator.executing");
         }
 
-        final Scriptable result = ES6Iterator.makeIteratorResult(cx, scope, false);
+        Scriptable result = ES6Iterator.makeIteratorResult(cx, scope, false);
         state = State.EXECUTING;
 
         try {
@@ -250,7 +254,7 @@ public final class ES6Generator extends IdScriptableObject {
                 state = State.SUSPENDED_YIELD;
 
                 // This special result tells us that we are executing a "yield *"
-                final YieldStarResult ysResult = (YieldStarResult)r;
+                YieldStarResult ysResult = (YieldStarResult)r;
                 try {
                     delegee = ScriptRuntime.callIterator(ysResult.getResult(), cx, scope);
                 } catch (RhinoException re) {
@@ -275,14 +279,14 @@ public final class ES6Generator extends IdScriptableObject {
                 return delResult;
             }
 
-            ScriptableObject.putProperty(result, "value", r);
+            ScriptableObject.putProperty(result, ES6Iterator.VALUE_PROPERTY, r);
 
         } catch (NativeGenerator.GeneratorClosedException gce) {
             state = State.COMPLETED;
         } catch (JavaScriptException jse) {
             state = State.COMPLETED;
             if (jse.getValue() instanceof NativeIterator.StopIteration) {
-                ScriptableObject.putProperty(result, "value", 
+                ScriptableObject.putProperty(result, ES6Iterator.VALUE_PROPERTY,
                   ((NativeIterator.StopIteration)jse.getValue()).getValue());
             } else {
                 lineNumber = jse.lineNumber();
@@ -298,7 +302,7 @@ public final class ES6Generator extends IdScriptableObject {
             throw re;
         } finally {
             if (state == State.COMPLETED) {
-                ScriptableObject.putProperty(result, "done", true);
+                ScriptableObject.putProperty(result, ES6Iterator.DONE_PROPERTY, true);
             } else {
                 state = State.SUSPENDED_YIELD;
             }
@@ -316,12 +320,12 @@ public final class ES6Generator extends IdScriptableObject {
             state = State.COMPLETED;
         }
 
-        final Scriptable result = ES6Iterator.makeIteratorResult(cx, scope, false);
+        Scriptable result = ES6Iterator.makeIteratorResult(cx, scope, false);
         if (state == State.COMPLETED) {
             if (op == NativeGenerator.GENERATOR_THROW) {
                 throw new JavaScriptException(value, lineSource, lineNumber);
             }
-            ScriptableObject.putProperty(result, "done", true);
+            ScriptableObject.putProperty(result, ES6Iterator.DONE_PROPERTY, true);
             return result;
         }
 
@@ -342,7 +346,7 @@ public final class ES6Generator extends IdScriptableObject {
 
         try {
             Object r = function.resumeGenerator(cx, scope, op, savedState, throwValue);
-            ScriptableObject.putProperty(result, "value", r);
+            ScriptableObject.putProperty(result, ES6Iterator.VALUE_PROPERTY, r);
             // If we get here without an exception we can still run.
             state = State.SUSPENDED_YIELD;
 
@@ -351,7 +355,7 @@ public final class ES6Generator extends IdScriptableObject {
         } catch (JavaScriptException jse) {
             state = State.COMPLETED;
             if (jse.getValue() instanceof NativeIterator.StopIteration) {
-                ScriptableObject.putProperty(result, "value", 
+                ScriptableObject.putProperty(result, ES6Iterator.VALUE_PROPERTY,
                   ((NativeIterator.StopIteration)jse.getValue()).getValue());
             } else {
                 lineNumber = jse.lineNumber();
@@ -371,7 +375,7 @@ public final class ES6Generator extends IdScriptableObject {
             // and we will never delegate to the delegee again
             if (state == State.COMPLETED) {
                 delegee = null;
-                ScriptableObject.putProperty(result, "done", true);
+                ScriptableObject.putProperty(result, ES6Iterator.DONE_PROPERTY, true);
             }
         }
         return result;

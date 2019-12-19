@@ -1939,6 +1939,12 @@ public class Parser
           case Token.SEMI: case Token.RC:  case Token.RB:    case Token.RP:
           case Token.EOF:  case Token.EOL: case Token.ERROR:
             break;
+          case Token.YIELD:
+            if (compilerEnv.getLanguageVersion() < Context.VERSION_ES6) {
+                // Take extra care to preserve language compatibility
+                break;
+            }
+            // fallthrough
           default:
             e = expr();
             end = getNodeEnd(e);

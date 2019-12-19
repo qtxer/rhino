@@ -29,11 +29,11 @@ public class IteratorLikeIterable
     public IteratorLikeIterable(Context cx, Scriptable scope, Object target) {
         this.cx = cx;
         this.scope = scope;
-        next = ScriptRuntime.getPropFunctionAndThis(target, "next", cx, scope);
+        next = ScriptRuntime.getPropFunctionAndThis(target, ES6Iterator.NEXT_METHOD, cx, scope);
         iterator = ScriptRuntime.lastStoredScriptable(cx);
         Scriptable st = ScriptableObject.ensureScriptable(target);
-        if (st.has("return", st)) {
-            returnFunc = ScriptRuntime.getPropFunctionAndThis(target, "return", cx, scope);
+        if (st.has(ES6Iterator.RETURN_METHOD, st)) {
+            returnFunc = ScriptRuntime.getPropFunctionAndThis(target, ES6Iterator.RETURN_METHOD, cx, scope);
             ScriptRuntime.lastStoredScriptable(cx);
         } else {
             returnFunc = null;
@@ -63,14 +63,14 @@ public class IteratorLikeIterable
         @Override
         public boolean hasNext() {
             final Object val = next.call(cx, scope, iterator, ScriptRuntime.emptyArgs);
-            final Object doneval = ScriptRuntime.getObjectProp(val, "done", cx, scope);
+            final Object doneval = ScriptRuntime.getObjectProp(val, ES6Iterator.DONE_PROPERTY, cx, scope);
             if (Undefined.instance.equals(doneval)) {
-                throw ScriptRuntime.undefReadError(val, "done");
+                throw ScriptRuntime.undefReadError(val, ES6Iterator.DONE_PROPERTY);
             }
             if (Boolean.TRUE.equals(doneval)) {
                 return false;
             }
-            nextVal = ScriptRuntime.getObjectProp(val, "value", cx, scope);
+            nextVal = ScriptRuntime.getObjectProp(val, ES6Iterator.VALUE_PROPERTY, cx, scope);
             return true;
         }
 
